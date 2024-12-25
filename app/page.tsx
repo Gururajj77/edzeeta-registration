@@ -5,21 +5,34 @@ import ValuesSection from "./components/ValuesSection";
 import WhyJoinSection from "./components/WhyJoinSection";
 import './globals.css';
 import Image from 'next/image';
-import EdzeetaLogo from '../public/EdzeetaLogo.svg';
+import EdzeetaBigLogo from '../public/EdzeetaBigLogo.svg';
+import OfficialPartner from '../public/OfficialPartner.svg';
+
 export default function RegistrationPage() {
   return (
     <div className="min-h-screen bg-white flex flex-col items-center">
       {/* Header */}
       <header className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-4">
-        <h1 className="text-[#1e3fac] text-3xl sm:text-4xl font-bold">
-        <Image
-            src={EdzeetaLogo}  
-            alt="Edzeeta Logo"
-            width={150} 
-            height={75} 
-            className="object-contain cursor-pointer"
-          />
-        </h1>
+        <div className="flex justify-between items-center">
+          <div className="w-32 sm:w-40 md:w-48 lg:w-52">
+            <Image
+              src={EdzeetaBigLogo}  
+              alt="Edzeeta Logo"
+              width={200} 
+              height={100} 
+              className="object-contain cursor-pointer w-full h-auto"
+            />
+          </div>
+          <div className="w-32 sm:w-40 md:w-48 lg:w-52">
+            <Image
+              src={OfficialPartner}  
+              alt="Official Partner Logo"
+              width={200} 
+              height={100} 
+              className="object-contain cursor-pointer w-full h-auto"
+            />
+          </div>
+        </div>
       </header>
 
       {/* Main content */}
@@ -38,7 +51,7 @@ export default function RegistrationPage() {
       {/* Footer */}
       <footer className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         <div className="text-center text-gray-500">
-          © 2023 EDZEETA. All rights reserved.
+          © 2024 EDZEETA. All rights reserved.
         </div>
       </footer>
     </div>
