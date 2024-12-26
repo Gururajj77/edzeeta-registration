@@ -16,46 +16,97 @@ type ValidationResult = {
 }
 
 function TimeRemaining({ expiryDate }: { expiryDate: Timestamp }) {
-  const [timeLeft, setTimeLeft] = useState<string>("")
+  const [timeLeft, setTimeLeft] = useState<{
+    days: number;
+    hours: number;
+    minutes: number;
+    seconds: number;
+    expired: boolean;
+  }>({ days: 0, hours: 0, minutes: 0, seconds: 0, expired: false });
 
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const now = new Date()
-      const expiry = expiryDate.toDate()
-      const diff = expiry.getTime() - now.getTime()
+      const now = new Date();
+      const expiry = expiryDate.toDate();
+      const diff = expiry.getTime() - now.getTime();
 
       if (diff <= 0) {
-        return "Expired"
+        return { days: 0, hours: 0, minutes: 0, seconds: 0, expired: true };
       }
 
-      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-      if (days > 0) {
-        return `${days}d ${hours}h remaining`
-      } else if (hours > 0) {
-        return `${hours}h ${minutes}m remaining`
-      } else {
-        return `${minutes}m remaining`
-      }
-    }
+      return { days, hours, minutes, seconds, expired: false };
+    };
 
+    // Update every second instead of every minute
     const timer = setInterval(() => {
-      setTimeLeft(calculateTimeLeft())
-    }, 60000) // Update every minute
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
 
-    setTimeLeft(calculateTimeLeft()) // Initial calculation
+    setTimeLeft(calculateTimeLeft()); // Initial calculation
 
-    return () => clearInterval(timer)
-  }, [expiryDate])
+    return () => clearInterval(timer);
+  }, [expiryDate]);
+
+  if (timeLeft.expired) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4 animate-pulse">
+        <div className="flex items-center justify-center space-x-2 text-red-600">
+          <Clock className="w-5 h-5" />
+          <span className="font-semibold">Coupon Expired</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex items-center justify-center space-x-2 text-sm text-gray-600 mt-2">
-      <Clock className="w-4 h-4" />
-      <span>{timeLeft}</span>
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+      <div className="text-center text-blue-800 font-medium mb-2">
+        Time Remaining to Use Coupon
+      </div>
+      <div className="flex justify-center items-center space-x-4">
+        {timeLeft.days > 0 && (
+          <div className="flex flex-col items-center">
+            <div className="bg-white rounded-lg p-3 shadow-sm min-w-[60px]">
+              <span className="text-2xl font-bold text-blue-600">{timeLeft.days}</span>
+            </div>
+            <span className="text-sm text-blue-600 mt-1">Days</span>
+          </div>
+        )}
+        <div className="flex flex-col items-center">
+          <div className="bg-white rounded-lg p-3 shadow-sm min-w-[60px]">
+            <span className="text-2xl font-bold text-blue-600">
+              {timeLeft.days > 0 ? timeLeft.hours : timeLeft.hours.toString().padStart(2, '0')}
+            </span>
+          </div>
+          <span className="text-sm text-blue-600 mt-1">Hours</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="bg-white rounded-lg p-3 shadow-sm min-w-[60px]">
+            <span className="text-2xl font-bold text-blue-600">
+              {timeLeft.minutes.toString().padStart(2, '0')}
+            </span>
+          </div>
+          <span className="text-sm text-blue-600 mt-1">Minutes</span>
+        </div>
+        <div className="flex flex-col items-center">
+          <div className="bg-white rounded-lg p-3 shadow-sm min-w-[60px]">
+            <span className="text-2xl font-bold text-blue-600">
+              {timeLeft.seconds.toString().padStart(2, '0')}
+            </span>
+          </div>
+          <span className="text-sm text-blue-600 mt-1">Seconds</span>
+        </div>
+      </div>
+      <div className="text-center text-sm text-blue-600 mt-3 font-medium animate-pulse">
+        Use your discount before it expires!
+      </div>
     </div>
-  )
+  );
 }
 
 export default function CouponSection() {
@@ -93,7 +144,7 @@ export default function CouponSection() {
         if (emailSnapshot.empty) {
           setValidationResult({
             isValid: false,
-            message: "Invalid coupon code."
+            message: "Invalid email or coupon"
           })
           return
         }
@@ -105,18 +156,10 @@ export default function CouponSection() {
         if (emailData.expiryDate && emailData.expiryDate.toDate() < new Date()) {
           setValidationResult({
             isValid: false,
-            message: "This coupon has expired."
+            message: "This coupon has expired"
           })
           return
         }
-
-        // if (emailData.usedAt) {
-        //   setValidationResult({
-        //     isValid: false,
-        //     message: "This coupon has already been used."
-        //   })
-        //   return
-        // }
 
         // Mark email as used
         await updateDoc(doc(db, 'emails', emailDoc.id), {
@@ -142,7 +185,7 @@ export default function CouponSection() {
         if (couponSnapshot.empty) {
           setValidationResult({
             isValid: false,
-            message: "Invalid coupon code."
+            message: "Invalid coupon code"
           })
           return
         }
@@ -154,7 +197,7 @@ export default function CouponSection() {
         if (couponData.expiryDate && couponData.expiryDate.toDate() < new Date()) {
           setValidationResult({
             isValid: false,
-            message: "This coupon has expired."
+            message: "This coupon has expired"
           })
           return
         }
@@ -165,7 +208,7 @@ export default function CouponSection() {
         if (maxUses && currentUses >= maxUses) {
           setValidationResult({
             isValid: false,
-            message: "This coupon has reached its maximum usage limit."
+            message: "This coupon has reached its usage limit"
           })
           return
         }
@@ -219,7 +262,7 @@ export default function CouponSection() {
         </h2>
         <div className="w-24 h-1 bg-[#1e3fac] mx-auto mb-6"></div>
         <p className="text-lg sm:text-xl text-gray-700 font-semibold">
-          **Bonuses If You Register Today with Coupon Code**
+          **Special Discount with Coupon Code**
         </p>
       </div>
 
