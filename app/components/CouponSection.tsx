@@ -1,21 +1,67 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
-import { CheckCircle, XCircle, Sparkles, ArrowRight, Loader2 } from 'lucide-react'
-import { collection, query, where, getDocs, updateDoc, doc, deleteDoc } from 'firebase/firestore'
+import { CheckCircle, XCircle, Sparkles, ArrowRight, Loader2, Clock } from 'lucide-react'
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useToast } from "../../hooks/use-toast"
+
+type ValidationResult = {
+  isValid: boolean
+  message: string
+  expiryDate?: Timestamp
+}
+
+function TimeRemaining({ expiryDate }: { expiryDate: Timestamp }) {
+  const [timeLeft, setTimeLeft] = useState<string>("")
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = new Date()
+      const expiry = expiryDate.toDate()
+      const diff = expiry.getTime() - now.getTime()
+
+      if (diff <= 0) {
+        return "Expired"
+      }
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+
+      if (days > 0) {
+        return `${days}d ${hours}h remaining`
+      } else if (hours > 0) {
+        return `${hours}h ${minutes}m remaining`
+      } else {
+        return `${minutes}m remaining`
+      }
+    }
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft())
+    }, 60000) // Update every minute
+
+    setTimeLeft(calculateTimeLeft()) // Initial calculation
+
+    return () => clearInterval(timer)
+  }, [expiryDate])
+
+  return (
+    <div className="flex items-center justify-center space-x-2 text-sm text-gray-600 mt-2">
+      <Clock className="w-4 h-4" />
+      <span>{timeLeft}</span>
+    </div>
+  )
+}
 
 export default function CouponSection() {
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [validationResult, setValidationResult] = useState<{
-    isValid: boolean
-    message: string
-  } | null>(null)
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null)
   const { toast } = useToast()
 
   const validateInput = async (e: React.FormEvent) => {
@@ -53,12 +99,21 @@ export default function CouponSection() {
         }
 
         const emailDoc = emailSnapshot.docs[0]
-        // const emailData = emailDoc.data()
+        const emailData = emailDoc.data()
+
+        // Check expiry
+        if (emailData.expiryDate && emailData.expiryDate.toDate() < new Date()) {
+          setValidationResult({
+            isValid: false,
+            message: "This coupon has expired."
+          })
+          return
+        }
 
         // if (emailData.usedAt) {
         //   setValidationResult({
         //     isValid: false,
-        //     message: "This coupon has expired."
+        //     message: "This coupon has already been used."
         //   })
         //   return
         // }
@@ -70,7 +125,8 @@ export default function CouponSection() {
 
         setValidationResult({
           isValid: true,
-          message: "Coupon applied successfully!"
+          message: "Coupon applied successfully!",
+          expiryDate: emailData.expiryDate
         })
 
       } else {
@@ -93,10 +149,30 @@ export default function CouponSection() {
 
         const couponDoc = couponSnapshot.docs[0]
         const couponData = couponDoc.data()
+
+        // Check expiry
+        if (couponData.expiryDate && couponData.expiryDate.toDate() < new Date()) {
+          setValidationResult({
+            isValid: false,
+            message: "This coupon has expired."
+          })
+          return
+        }
+
         const currentUses = couponData.currentUses || 0
+        const maxUses = couponData.maxUses
+
+        if (maxUses && currentUses >= maxUses) {
+          setValidationResult({
+            isValid: false,
+            message: "This coupon has reached its maximum usage limit."
+          })
+          return
+        }
+
         const newUses = currentUses + 1
 
-        if (newUses >= couponData.maxUses) {
+        if (maxUses && newUses >= maxUses) {
           // Delete coupon if max uses reached
           await deleteDoc(doc(db, 'coupons', couponDoc.id))
         } else {
@@ -108,7 +184,8 @@ export default function CouponSection() {
 
         setValidationResult({
           isValid: true,
-          message: "Coupon applied successfully!"
+          message: "Coupon applied successfully!",
+          expiryDate: couponData.expiryDate
         })
       }
       
@@ -191,17 +268,23 @@ export default function CouponSection() {
           </form>
 
           {validationResult && (
-            <div
-              className={`p-4 rounded-lg ${
-                validationResult.isValid ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-              } flex items-center justify-center space-x-2 text-lg`}
-            >
-              {validationResult.isValid ? (
-                <CheckCircle className="w-6 h-6 text-green-500" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-500" />
+            <div className="space-y-2">
+              <div
+                className={`p-4 rounded-lg ${
+                  validationResult.isValid ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                } flex items-center justify-center space-x-2 text-lg`}
+              >
+                {validationResult.isValid ? (
+                  <CheckCircle className="w-6 h-6 text-green-500" />
+                ) : (
+                  <XCircle className="w-6 h-6 text-red-500" />
+                )}
+                <span>{validationResult.message}</span>
+              </div>
+              
+              {validationResult.isValid && validationResult.expiryDate && (
+                <TimeRemaining expiryDate={validationResult.expiryDate} />
               )}
-              <span>{validationResult.message}</span>
             </div>
           )}
 
